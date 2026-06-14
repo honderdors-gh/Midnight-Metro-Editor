@@ -1,0 +1,40 @@
+---
+description: Midnight Metro multi-repo layout, licenses, and how game + editor + prototype fit together
+alwaysApply: true
+---
+
+# Midnight Metro ecosystem
+
+**Studio:** Midnight Line Studio  
+**This repo:** Midnight-Metro-Editor — WinForms save file editor (**.NET 6**, Windows)
+
+## Repositories
+
+| Repo | Path (local) | Remote | License |
+|------|----------------|--------|---------|
+| **Midnight Metro** (game) | `Midnight Metro/Midnight Metro` | `github.com/honderdors-gh/Midnight-Metro` | **Proprietary** |
+| **Midnight-Metro-Editor** (this) | `Midnight-Metro-Editor` | `github.com/honderdors-gh/Midnight-Metro-Editor` | **Apache 2.0** — `LICENSE` |
+| **playground-1** (prototype) | `playground-1` | local only | source for saves + `CitySim` code to migrate |
+
+Do not merge licenses: this repo stays Apache 2.0; do not copy proprietary game assets or explicit mod art here.
+
+## How they work together
+
+- Edits **Midnight Metro** save files: gzip-wrapped JSON (`Services/SaveCompression.cs`, `Models/SaveModels.cs`).
+- Save model types still named `CitySimSaveFile*` for **format compatibility** with the prototype and until the game renames its schema.
+- **Citizen display names:** `NameDatabase` loads `citizen_names.json` from `%AppData%\MidnightMetroEditor\settings.json` or auto-detects sibling Unity projects (Midnight Metro / playground-1).
+- **CLI:** `dotnet run -c Release -- --verify path\to\save.json` for round-trip checks.
+- When the game changes save fields, update `SaveModels.cs` here and rebuild; keep game + editor in sync.
+
+## Build
+
+```bash
+cd src/MidnightMetroEditor
+dotnet build -c Release
+```
+
+## When editing
+
+- Tool-only changes → this repo (Apache 2.0).
+- Gameplay/simulation changes → Midnight Metro or migrate from playground-1 `Assets/CitySim`.
+- Never commit `bin/`, `obj/` (see `.gitignore`).
