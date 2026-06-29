@@ -86,6 +86,9 @@ public sealed class MainForm : Form
 
     MenuStrip _menuStrip = null!;
     ToolStrip _toolStrip = null!;
+    ToolStripMenuItem _saveMenuItem = null!;
+    ToolStripMenuItem _saveAsMenuItem = null!;
+    ToolStripButton _saveToolButton = null!;
 
     static DataGridView CreateGrid()
     {
@@ -127,8 +130,10 @@ public sealed class MainForm : Form
         var menu = new MenuStrip();
         var file = new ToolStripMenuItem("&File");
         file.DropDownItems.Add("&Open...", null, (_, _) => OpenSave());
-        file.DropDownItems.Add("&Save", null, (_, _) => SaveCurrent());
-        file.DropDownItems.Add("Save &As...", null, (_, _) => SaveAs());
+        _saveMenuItem = new ToolStripMenuItem("&Save", null, (_, _) => SaveCurrent());
+        file.DropDownItems.Add(_saveMenuItem);
+        _saveAsMenuItem = new ToolStripMenuItem("Save &As...", null, (_, _) => SaveAs());
+        file.DropDownItems.Add(_saveAsMenuItem);
         file.DropDownItems.Add("&Reload", null, (_, _) => ReloadCurrent());
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add("Export &JSON...", null, (_, _) => ExportJson());
@@ -140,15 +145,22 @@ public sealed class MainForm : Form
         settings.DropDownItems.Add("Set &Names Database...", null, (_, _) => PickNamesPath());
         settings.DropDownItems.Add("Open Save &Folder", null, (_, _) => OpenSaveFolder());
 
+        var tools = new ToolStripMenuItem("&Tools");
+        tools.DropDownItems.Add("Reset &metro network...", null, (_, _) => ResetMetroNetwork());
+
         var help = new ToolStripMenuItem("&Help");
         help.DropDownItems.Add("&About", null, (_, _) =>
             MessageBox.Show(
-                "Midnight Metro Save Editor\n\nEdit compressed midnight_metro save JSON files files.\nAlways back up saves before editing.\nA .bak copy is created on save.",
+                "Midnight Metro Save Editor\n\n" +
+                "Edits Midnight Metro game saves (Unity gzip JSON) and legacy prototype saves.\n" +
+                "Run scripts/sync-save-schema.ps1 when the game save version changes.\n\n" +
+                "Always back up saves before editing. A .bak copy is created on save.",
                 "About",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information));
 
         menu.Items.Add(file);
+        menu.Items.Add(tools);
         menu.Items.Add(settings);
         menu.Items.Add(help);
         _menuStrip = menu;
@@ -156,35 +168,42 @@ public sealed class MainForm : Form
 
         _toolStrip = new ToolStrip();
         _toolStrip.Items.Add(new ToolStripButton("Open", null, (_, _) => OpenSave()) { DisplayStyle = ToolStripItemDisplayStyle.Text });
-        _toolStrip.Items.Add(new ToolStripButton("Save", null, (_, _) => SaveCurrent()) { DisplayStyle = ToolStripItemDisplayStyle.Text });
+        _saveToolButton = new ToolStripButton("Save", null, (_, _) => SaveCurrent()) { DisplayStyle = ToolStripItemDisplayStyle.Text };
+        _toolStrip.Items.Add(_saveToolButton);
         _toolStrip.Items.Add(new ToolStripSeparator());
         _toolStrip.Items.Add(new ToolStripLabel("Quick day:"));
         var dayBox = new ToolStripTextBox { Width = 60 };
         dayBox.KeyDown += (_, e) =>
         {
             if (e.KeyCode != Keys.Enter) return;
-            if (_doc.File.session == null) return;
             if (int.TryParse(dayBox.Text, out var day))
-            {
-                _doc.File.session.day = day;
-                MarkDirty();
-                RefreshTitle();
-                _overviewBox.Text = GridHelper.BuildOverview(_doc.File);
-                _statusLabel.Text = $"Day set to {day}.";
-            }
+                ApplyQuickDay(day);
         };
         _toolStrip.Items.Add(dayBox);
         _toolStrip.Items.Add(new ToolStripButton("Apply Day", null, (_, _) =>
         {
-            if (_doc.File.session == null) return;
             if (int.TryParse(dayBox.Text, out var day))
-            {
-                _doc.File.session.day = day;
-                MarkDirty();
-                RefreshTitle();
-                _overviewBox.Text = GridHelper.BuildOverview(_doc.File);
-            }
+                ApplyQuickDay(day);
         }));
+    }
+
+    void ApplyQuickDay(int day)
+    {
+        if (_doc.IsGameSave)
+        {
+            if (_doc.GameFile == null) return;
+            _doc.GameFile.session.day = day;
+        }
+        else
+        {
+            if (_doc.File.session == null) return;
+            _doc.File.session.day = day;
+        }
+
+        MarkDirty();
+        RefreshTitle();
+        _overviewBox.Text = _doc.GetOverviewText() + (_doc.Path != null ? $"\r\n\r\nFile: {_doc.Path}" : "");
+        _statusLabel.Text = $"Day set to {day}.";
     }
 
     void BuildLayout()
@@ -307,25 +326,26 @@ public sealed class MainForm : Form
 
     void TryOpenDefaultSave()
     {
+        var candidates = new List<string>();
+
+        var recent = GameSavePaths.GetMostRecentSavePath();
+        if (!string.IsNullOrWhiteSpace(recent))
+            candidates.Add(recent);
+
+        candidates.Add(GameSavePaths.PrimarySavePath);
+
         var settings = EditorSettings.Load();
-        var candidates = new[]
-        {
-            settings.LastSaveDirectory != null
-                ? Path.Combine(settings.LastSaveDirectory, "citysim_save.json")
-                : null,
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "..", "LocalLow", "DefaultCompany", "playground-1", "citysim_save.json")
-        };
+        if (!string.IsNullOrWhiteSpace(settings.LastSaveDirectory))
+            candidates.Add(Path.Combine(settings.LastSaveDirectory, "citysim_save.json"));
 
         foreach (var path in candidates)
         {
-            if (string.IsNullOrWhiteSpace(path)) continue;
-            var full = Path.GetFullPath(path);
-            if (!File.Exists(full)) continue;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                continue;
+
             try
             {
-                _doc.Load(full);
+                _doc.Load(path);
                 RefreshAfterLoad();
                 return;
             }
@@ -391,13 +411,27 @@ public sealed class MainForm : Form
     void ShowOverview()
     {
         _overviewBox.Text = _doc.Path != null
-            ? GridHelper.BuildOverview(_doc.File) + $"\r\n\r\nFile: {_doc.Path}"
+            ? _doc.GetOverviewText() + $"\r\n\r\nFile: {_doc.Path}"
             : "Open a save file to begin.";
         _contentHost.Controls.Add(_overviewBox);
     }
 
     void ShowSession()
     {
+        if (_doc.IsGameSave)
+        {
+            if (_doc.GameFile == null) return;
+            _propertyGrid.SelectedObject = _doc.GameFile.session;
+            _contentHost.Controls.Add(new Label
+            {
+                Dock = DockStyle.Fill,
+                Text = "Edit session fields in the property panel.\r\n\r\nCommon edits: day, cityName, randomSeed, treasury, metroNetworkResetPending.",
+                AutoSize = false,
+                Padding = new Padding(4)
+            });
+            return;
+        }
+
         EnsureSession();
         _propertyGrid.SelectedObject = _doc.File.session;
         _contentHost.Controls.Add(new Label
@@ -699,7 +733,9 @@ public sealed class MainForm : Form
         panel.Controls.Add(controls, 0, 0);
         panel.Controls.Add(new Label
         {
-            Text = "Inspect/edit one grid cell from the v2 columnar grid. Legacy v1 per-cell list is not shown here.",
+            Text = _doc.IsGameSave
+                ? "Inspect/edit one grid cell from the game save columnar grid."
+                : "Inspect/edit one grid cell from the v2 columnar grid. Legacy v1 per-cell list is not shown here.",
             AutoSize = true,
             Padding = new Padding(0, 8, 0, 8)
         }, 0, 1);
@@ -711,7 +747,39 @@ public sealed class MainForm : Form
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             AllowUserToAddRows = false
         };
-        if (_doc.File.grid != null)
+        if (_doc.IsGameSave)
+        {
+            if (_doc.GameFile?.grid == null) return;
+            var samples = new List<object>();
+            var g = _doc.GameFile.grid;
+            for (var y = 0; y < g.height; y++)
+            for (var x = 0; x < g.width; x++)
+            {
+                var idx = y * g.width + x;
+                if (g.type == null || g.type[idx] == 0 || g.type[idx] == 1)
+                    continue;
+                samples.Add(new
+                {
+                    x,
+                    y,
+                    type = g.type[idx],
+                    zone = g.zone?[idx] ?? 0,
+                    pop = g.population?[idx] ?? 0,
+                    wealth = g.wealth?[idx] ?? 0
+                });
+                if (samples.Count >= 500) break;
+            }
+
+            gridList.DataSource = samples;
+            gridList.CellDoubleClick += (_, e) =>
+            {
+                if (e.RowIndex < 0) return;
+                _cellX.Value = Convert.ToDecimal(gridList.Rows[e.RowIndex].Cells[0].Value);
+                _cellY.Value = Convert.ToDecimal(gridList.Rows[e.RowIndex].Cells[1].Value);
+                LoadGridCell();
+            };
+        }
+        else if (_doc.File.grid != null)
         {
             var samples = new List<object>();
             var g = _doc.File.grid;
@@ -751,6 +819,21 @@ public sealed class MainForm : Form
     {
         var x = (int)_cellX.Value;
         var y = (int)_cellY.Value;
+
+        if (_doc.IsGameSave)
+        {
+            if (_doc.GameFile == null || !MetroGameGridHelper.TryGetCellView(_doc.GameFile, x, y, out var gameView) || gameView == null)
+            {
+                _cellSummary.Text = "Invalid coordinates or no game grid.";
+                _propertyGrid.SelectedObject = null;
+                return;
+            }
+
+            _cellSummary.Text = gameView.Summary;
+            _propertyGrid.SelectedObject = gameView;
+            return;
+        }
+
         if (!GridHelper.TryGetCellView(_doc.File, x, y, out var view) || view == null)
         {
             _cellSummary.Text = "Invalid coordinates or no v2 grid.";
@@ -770,7 +853,10 @@ public sealed class MainForm : Form
 
     void ShowRawJson()
     {
-        _rawJsonBox.Text = SaveJson.SerializePretty(_doc.File);
+        _rawJsonBox.ReadOnly = false;
+        _rawJsonBox.Text = _doc.IsGameSave && _doc.GameFile != null
+            ? MetroSaveJson.SerializePretty(_doc.GameFile)
+            : SaveJson.SerializePretty(_doc.File);
         _contentHost.Controls.Add(_rawJsonBox);
     }
 
@@ -847,6 +933,10 @@ public sealed class MainForm : Form
         var settings = EditorSettings.Load();
         if (!string.IsNullOrWhiteSpace(settings.LastSaveDirectory) && Directory.Exists(settings.LastSaveDirectory))
             dlg.InitialDirectory = settings.LastSaveDirectory;
+        else if (Directory.Exists(GameSavePaths.SavesRoot))
+            dlg.InitialDirectory = GameSavePaths.SavesRoot;
+        else if (Directory.Exists(GameSavePaths.PersistentDataPath))
+            dlg.InitialDirectory = GameSavePaths.PersistentDataPath;
 
         if (dlg.ShowDialog() != DialogResult.OK) return;
         try
@@ -887,7 +977,7 @@ public sealed class MainForm : Form
         {
             Filter = "Midnight Metro saves (*.json)|*.json|All files (*.*)|*.*",
             Title = "Save Midnight Metro save",
-            FileName = "citysim_save.json"
+            FileName = _doc.IsGameSave ? "midnight_metro_save.json" : "citysim_save.json"
         };
         if (dlg.ShowDialog() != DialogResult.OK) return;
         try
@@ -915,6 +1005,13 @@ public sealed class MainForm : Form
     {
         try
         {
+            if (_doc.IsGameSave)
+            {
+                var file = MetroSaveJson.Deserialize(_rawJsonBox.Text);
+                _doc.ReplaceGameFile(file, _rawJsonBox.Text);
+                return true;
+            }
+
             _doc.ReplaceFile(SaveJson.Deserialize(_rawJsonBox.Text));
             return true;
         }
@@ -952,7 +1049,10 @@ public sealed class MainForm : Form
             FileName = "citysim_export.json"
         };
         if (dlg.ShowDialog() != DialogResult.OK) return;
-        File.WriteAllText(dlg.FileName, SaveJson.SerializePretty(_doc.File));
+        var exportText = _doc.IsGameSave && _doc.GameFile != null
+            ? MetroSaveJson.SerializePretty(_doc.GameFile)
+            : SaveJson.SerializePretty(_doc.File);
+        File.WriteAllText(dlg.FileName, exportText);
         _statusLabel.Text = $"Exported {dlg.FileName}";
     }
 
@@ -985,13 +1085,55 @@ public sealed class MainForm : Form
         _statusLabel.Text = "Names database updated.";
     }
 
+    void ResetMetroNetwork()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Filter = "Midnight Metro save|*.json",
+            Title = "Select game save to reset metro network"
+        };
+        if (!string.IsNullOrWhiteSpace(_doc.Path) && File.Exists(_doc.Path))
+            dlg.InitialDirectory = Path.GetDirectoryName(_doc.Path);
+        else if (Directory.Exists(GameSavePaths.SavesRoot))
+            dlg.InitialDirectory = GameSavePaths.SavesRoot;
+        else
+            dlg.InitialDirectory = GameSavePaths.PersistentDataPath;
+        if (dlg.ShowDialog() != DialogResult.OK)
+            return;
+
+        var path = dlg.FileName;
+
+        var answer = MessageBox.Show(
+            "Clear all metro tunnels, stations, and line catalog in this save?\n\n" +
+            "A .bak_metro_reset backup is created. On load the game auto-expands a fresh network for 5 sim days.\n\n" +
+            $"File: {path}",
+            "Reset metro network",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+        if (answer != DialogResult.Yes)
+            return;
+
+        try
+        {
+            MetroSaveRepair.ResetMetroNetwork(path, createBackup: true);
+            _statusLabel.Text = "Metro network cleared — load save in game.";
+            MessageBox.Show(
+                "Metro data cleared.\n\nLoad this save in Midnight Metro. The planner will rebuild stations/tunnels over the next few sim days.",
+                "Reset complete",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Reset failed:\n{ex.Message}", "Reset metro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     void OpenSaveFolder()
     {
         var dir = _doc.Path != null
             ? Path.GetDirectoryName(_doc.Path)
-            : Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "..", "LocalLow", "DefaultCompany", "playground-1");
+            : GameSavePaths.PersistentDataPath;
         if (dir == null) return;
         dir = Path.GetFullPath(dir);
         Directory.CreateDirectory(dir);
@@ -1026,12 +1168,56 @@ public sealed class MainForm : Form
 
     void RefreshAfterLoad()
     {
-        EnsureNestedObjects();
-        _citizenRows = CitizenIndex.Build(_doc.File, _doc.Names);
+        if (!_doc.IsGameSave)
+            EnsureNestedObjects();
+
+        _citizenRows = _doc.IsGameSave && _doc.GameFile != null
+            ? MetroGameCitizenIndex.Build(_doc.GameFile, _doc.Names)
+            : CitizenIndex.Build(_doc.File, _doc.Names);
+
         RefreshTitle();
-        _overviewBox.Text = GridHelper.BuildOverview(_doc.File) + $"\r\n\r\nFile: {_doc.Path}";
-        _statusLabel.Text = $"Loaded {_doc.Path}";
+        RebuildTreeForDocument();
+
+        _overviewBox.Text = _doc.GetOverviewText() + $"\r\n\r\nFile: {_doc.Path}";
+        _statusLabel.Text = _doc.IsGameSave
+            ? $"Loaded game save v{_doc.GameFile?.version} — {_doc.Path}"
+            : $"Loaded {_doc.Path}";
         ShowView(_currentView);
+    }
+
+    void RebuildTreeForDocument()
+    {
+        var selected = _tree.SelectedNode?.Name ?? "overview";
+        BuildTree();
+        if (_doc.IsGameSave)
+        {
+            HideTreeNode("budget");
+            HideTreeNode("playerAgency");
+            HideTreeNode("gangs");
+            HideTreeNode("cases");
+            HideTreeNode("honor");
+            HideTreeNode("metrics");
+            HideTreeNode("citizens_agents");
+            HideTreeNode("citizens_legacy");
+        }
+
+        SelectTreeNode(selected);
+    }
+
+    void HideTreeNode(string name)
+    {
+        var node = _tree.Nodes.Find(name, true).FirstOrDefault();
+        if (node != null)
+            node.Remove();
+    }
+
+    void SelectTreeNode(string name)
+    {
+        var node = _tree.Nodes.Find(name, true).FirstOrDefault();
+        if (node != null)
+            _tree.SelectedNode = node;
+        else if (_tree.Nodes.Count > 0)
+            _tree.SelectedNode = _tree.Nodes[0];
     }
 
     void EnsureNestedObjects()

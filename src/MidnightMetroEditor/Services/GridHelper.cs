@@ -91,6 +91,9 @@ public static class GridHelper
 public sealed class SaveDocument
 {
     public CitySimSaveFile File { get; private set; } = new();
+    public MetroSaveFile? GameFile { get; private set; }
+    string? _originalGameJson;
+    public bool IsGameSave => GameFile != null;
     public string? Path { get; private set; }
     public bool IsDirty { get; set; }
     public NameDatabase Names { get; } = new();
@@ -98,7 +101,20 @@ public sealed class SaveDocument
     public void Load(string path)
     {
         var json = SaveCompression.ReadSaveText(path);
-        File = SaveJson.Deserialize(json);
+        if (MetroSaveGameFormat.IsGameSave(json))
+        {
+            MetroSaveVerify.ValidateGameSaveOrThrow(json);
+            _originalGameJson = json;
+            GameFile = MetroSaveJson.Deserialize(json);
+            File = new CitySimSaveFile();
+        }
+        else
+        {
+            _originalGameJson = null;
+            GameFile = null;
+            File = SaveJson.Deserialize(json);
+        }
+
         Path = path;
         IsDirty = false;
         RefreshNames();
@@ -111,7 +127,21 @@ public sealed class SaveDocument
     public void Save(string? path = null)
     {
         path ??= Path ?? throw new InvalidOperationException("No save path.");
-        SaveCompression.WriteSave(path, File);
+
+        if (IsGameSave)
+        {
+            if (GameFile == null || _originalGameJson == null)
+                throw new InvalidOperationException("Game save is not loaded.");
+
+            SaveCompression.WriteGameSave(path, GameFile, _originalGameJson);
+            _originalGameJson = SaveCompression.ReadSaveText(path);
+            GameFile = MetroSaveJson.Deserialize(_originalGameJson);
+        }
+        else
+        {
+            SaveCompression.WriteSave(path, File);
+        }
+
         Path = path;
         IsDirty = false;
     }
@@ -125,21 +155,73 @@ public sealed class SaveDocument
 
     public void ReplaceFile(CitySimSaveFile file, string? path = null)
     {
+        if (IsGameSave)
+            throw new InvalidOperationException("Use ReplaceGameFile for Midnight Metro game saves.");
+
+        GameFile = null;
+        _originalGameJson = null;
         File = file;
         if (path != null)
             Path = path;
         IsDirty = true;
     }
 
+    public void ReplaceGameFile(MetroSaveFile file, string? originalJson = null)
+    {
+        if (!IsGameSave)
+            throw new InvalidOperationException("Not a game save document.");
+
+        GameFile = file;
+        if (originalJson != null)
+            _originalGameJson = originalJson;
+        IsDirty = true;
+    }
+
     public void ImportFromJson(string json)
     {
-        File = SaveJson.Deserialize(json);
+        if (MetroSaveGameFormat.IsGameSave(json))
+        {
+            MetroSaveVerify.ValidateGameSaveOrThrow(json);
+            _originalGameJson = json;
+            GameFile = MetroSaveJson.Deserialize(json);
+            File = new CitySimSaveFile();
+        }
+        else
+        {
+            _originalGameJson = null;
+            GameFile = null;
+            File = SaveJson.Deserialize(json);
+        }
+
         Path = null;
+        IsDirty = true;
+    }
+
+    public void ApplyRawGameJson(string json)
+    {
+        MetroSaveVerify.ValidateGameSaveOrThrow(json);
+        _originalGameJson = json;
+        GameFile = MetroSaveJson.Deserialize(json);
         IsDirty = true;
     }
 
     public void RefreshNames() => Names.Load(NameDatabase.ResolveGameNamesPath());
 
-    public string Title =>
-        (Path != null ? System.IO.Path.GetFileName(Path) : "Untitled") + (IsDirty ? " *" : "");
+    public string GetOverviewText() =>
+        IsGameSave && GameFile != null
+            ? MetroGameGridHelper.BuildOverview(GameFile)
+            : GridHelper.BuildOverview(File);
+
+    public string Title
+    {
+        get
+        {
+            var name = Path != null ? System.IO.Path.GetFileName(Path) : "Untitled";
+            if (IsGameSave)
+                name += " [game save]";
+            if (IsDirty)
+                name += " *";
+            return name;
+        }
+    }
 }

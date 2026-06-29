@@ -55,6 +55,20 @@ public static class SaveCompression
         return TryDecode(bytes, out var json) ? json : Encoding.UTF8.GetString(bytes);
     }
 
+    public static void WriteGameSave(string path, MetroSaveFile file, string originalJson, bool createBackup = true)
+    {
+        if (createBackup && File.Exists(path))
+        {
+            var backup = path + ".bak";
+            File.Copy(path, backup, overwrite: true);
+        }
+
+        file.savedUtc = DateTime.UtcNow.ToString("o");
+        var json = MetroSaveJsonMerge.MergeOriginalWithFile(originalJson, file);
+        MetroSaveVerify.ValidateGameSaveOrThrow(json);
+        File.WriteAllBytes(path, Encode(json));
+    }
+
     public static void WriteSave(string path, CitySimSaveFile file, bool createBackup = true)
     {
         if (createBackup && File.Exists(path))
