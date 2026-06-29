@@ -252,6 +252,9 @@ namespace MidnightMetroEditor.Models
         /// <summary>Jail sentence end day + active case link (v43+).</summary>
         public int[]? incarceratedUntilDay;
         public int[]? activeJusticeCaseId;
+        /// <summary>Police academy cadet / patrol rank (v45+).</summary>
+        public int[]? policeRank;
+        public int[]? policeTrainingDays;
     }
     public class MetroSaveJustice
     {
