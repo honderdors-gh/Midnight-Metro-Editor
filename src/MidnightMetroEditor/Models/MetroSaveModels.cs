@@ -89,6 +89,8 @@ namespace MidnightMetroEditor.Models
         public int federalPoliceContractActive;
         public int federalPoliceContractSignedDay;
         public int federalPoliceContractDaysRemaining;
+        /// <summary>Time of day when saved (0–24, v44+).</summary>
+        public float simHour;
     }
     public class MetroSaveGrid
     {
@@ -275,6 +277,7 @@ namespace MidnightMetroEditor.Models
         public int verdict;
         public int sentenceDays;
         public int mistrialCount;
+        public int pleaCooperating;
     }
     public class MetroSaveMayorHonorRow
     {
