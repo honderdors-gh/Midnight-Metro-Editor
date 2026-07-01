@@ -23,6 +23,14 @@ namespace MidnightMetroEditor.Models
         public MetroSaveElections elections = new();
         /// <summary>Prosecution cases (v43+).</summary>
         public MetroSaveJustice justice = new();
+        /// <summary>Gang organizations (v47+).</summary>
+        public MetroSaveGangs gangs = new();
+        /// <summary>Per-citizen criminal ledger rows (v47+).</summary>
+        public MetroSaveCriminalLedger criminalLedger = new();
+        /// <summary>Licensed vs illegal vice lots (v51+).</summary>
+        public MetroSaveNightlife nightlife = new();
+        /// <summary>Named gang chunk ownership (v51+).</summary>
+        public MetroSaveGangTurf gangTurf = new();
     }
     public class MetroSaveMobility
     {
@@ -255,7 +263,67 @@ namespace MidnightMetroEditor.Models
         /// <summary>Police academy cadet / patrol rank (v45+).</summary>
         public int[]? policeRank;
         public int[]? policeTrainingDays;
+        /// <summary>Role slot at workplace + job-market eligibility (v46+).</summary>
+        public int[]? workSlotIndex;
+        public int[]? workSubwaySlot;
+        public int[]? jobEligibleDay;
+        /// <summary>Gang membership + youth spiral (v47+).</summary>
+        public int[]? gangId;
+        public int[]? gangRole;
+        public int[]? youthCrimeExposure;
+        public int[]? isSchoolDropout;
+        /// <summary>Soldier/member rank 1–10 within crew role (v48+).</summary>
+        public int[]? gangLevel;
+        /// <summary>Turned official — crew payoff/blackmail, not membership (v49+).</summary>
+        public int[]? compromisedByGangId;
+        public int[]? compromiseKind;
+        public int[]? compromiseDay;
+        /// <summary>Affiliate vs member + initiation + solo serial (v50+).</summary>
+        public int[]? gangStanding;
+        public int[]? gangInitiationDays;
+        public int[]? serialHiddenCrimes;
     }
+
+    public class MetroSaveGangs
+    {
+        public int nextGangId = 1;
+        public int[]? gangId;
+        public int[]? nameId;
+        public int[]? hqX;
+        public int[]? hqY;
+        public int[]? bossRosterId;
+        public int[]? notoriety;
+        public int[]? membersRecruited;
+        /// <summary>Crew activity + border rivalry (v51+).</summary>
+        public int[]? activity;
+        public int[]? rivalGangId;
+        public int[]? rivalryScore;
+    }
+
+    public class MetroSaveNightlife
+    {
+        public int[]? lotX;
+        public int[]? lotY;
+        public int[]? viceKind;
+        public int[]? ownerGangId;
+    }
+
+    public class MetroSaveGangTurf
+    {
+        public int[]? chunkIndex;
+        public int[]? gangId;
+    }
+
+    public class MetroSaveCriminalLedger
+    {
+        public int[]? rosterId;
+        public int[]? day;
+        public int[]? crimeKind;
+        public int[]? proven;
+        public int[]? gangId;
+        public int[]? weight;
+    }
+
     public class MetroSaveJustice
     {
         public int nextCaseId = 1;
@@ -310,6 +378,11 @@ namespace MidnightMetroEditor.Models
         public int[]? councilSlateVotePermille;
         public int councilSlateSize;
         public MetroSaveMayorHonorRow[] mayorHonor;
+        /// <summary>Police chief + DA appointments (v51+).</summary>
+        public int policeChiefRosterId;
+        public int districtAttorneyRosterId;
+        public int policeChiefAppointedDay;
+        public int districtAttorneyAppointedDay;
     }
     public class MetroSaveNewsArticleRow
     {
