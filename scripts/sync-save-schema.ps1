@@ -5,6 +5,7 @@ param(
     [string]$GameRepo = (Join-Path $PSScriptRoot "..\..\Midnight Metro\Midnight Metro"),
     [string]$SourceModels = "Assets\MidnightMetro\Scripts\Simulation\Saves\SaveModels.cs",
     [string]$SourceSession = "Assets\MidnightMetro\Scripts\GameSession.cs",
+    [string]$SourceWorkplaceTable = "Assets\MidnightMetro\Scripts\Simulation\Buildings\MetroWorkplaceTable.cs",
     [string]$TargetModels = "src\MidnightMetroEditor\Models\MetroSaveModels.cs",
     [string]$TargetSchema = "src\MidnightMetroEditor\Models\MetroSaveSchema.cs"
 )
@@ -14,6 +15,7 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 
 $srcModels = Join-Path $GameRepo $SourceModels
 $srcSession = Join-Path $GameRepo $SourceSession
+$srcWorkplaceTable = Join-Path $GameRepo $SourceWorkplaceTable
 $dstModels = Join-Path $repoRoot $TargetModels
 $dstSchema = Join-Path $repoRoot $TargetSchema
 
@@ -40,9 +42,20 @@ $content = $content -replace 'public MetroSaveMetroLineRidershipRow\[\] ', 'publ
 New-Item -ItemType Directory -Force -Path (Split-Path $dstModels) | Out-Null
 Set-Content -Path $dstModels -Value $content -NoNewline
 
+$version = $null
 $sessionText = Get-Content -Raw $srcSession
 if ($sessionText -match 'file\.version\s*=\s*(\d+)') {
     $version = $Matches[1]
+}
+
+if (-not $version -and (Test-Path $srcWorkplaceTable)) {
+    $workplaceText = Get-Content -Raw $srcWorkplaceTable
+    if ($workplaceText -match 'WorkplaceSaveVersion\s*=\s*(\d+)') {
+        $version = $Matches[1]
+    }
+}
+
+if ($version) {
     $schema = @(
         'namespace MidnightMetroEditor.Models;',
         '',
@@ -56,7 +69,7 @@ if ($sessionText -match 'file\.version\s*=\s*(\d+)') {
     Set-Content -Path $dstSchema -Value $schema -NoNewline
     Write-Host "Synced save version -> v$version"
 } else {
-    Write-Warning 'Could not find file.version in GameSession.cs; MetroSaveSchema.cs not updated.'
+    Write-Warning 'Could not resolve save version from GameSession or MetroWorkplaceTable; MetroSaveSchema.cs not updated.'
 }
 
 Write-Host "Synced save models -> $dstModels"

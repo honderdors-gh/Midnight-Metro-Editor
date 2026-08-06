@@ -209,7 +209,7 @@ public sealed class SaveDocument
 
     public string GetOverviewText() =>
         IsGameSave && GameFile != null
-            ? MetroGameGridHelper.BuildOverview(GameFile)
+            ? MetroGameGridHelper.BuildOverview(GameFile, Names)
             : GridHelper.BuildOverview(File);
 
     public string Title

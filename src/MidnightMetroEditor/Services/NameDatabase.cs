@@ -5,7 +5,9 @@ namespace MidnightMetroEditor.Services;
 
 public sealed class NameDatabase
 {
-    readonly Dictionary<string, EthnicNamePool> _pools = new(StringComparer.OrdinalIgnoreCase);
+    readonly NamePackLoader _packs = new();
+
+    public NamePackLoader Packs => _packs;
 
     public static string DefaultNamesPath =>
         ResolveFirstExisting(
@@ -39,34 +41,10 @@ public sealed class NameDatabase
         return configured ?? fromRepo;
     }
 
-    public void Load(string path)
+    public void Load(string? legacyPath = null)
     {
-        _pools.Clear();
-        if (!File.Exists(path))
-            return;
-
-        using var stream = File.OpenRead(path);
-        using var doc = JsonDocument.Parse(stream);
-        foreach (var prop in doc.RootElement.EnumerateObject())
-        {
-            var pool = new EthnicNamePool
-            {
-                MaleFirst = ReadStringArray(prop.Value, "maleFirstNames"),
-                FemaleFirst = ReadStringArray(prop.Value, "femaleFirstNames"),
-                Family = ReadStringArray(prop.Value, "familyNames")
-            };
-            _pools[prop.Name] = pool;
-        }
-    }
-
-    static string[] ReadStringArray(JsonElement parent, string name)
-    {
-        if (!parent.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array)
-            return Array.Empty<string>();
-
-        return arr.EnumerateArray()
-            .Select(e => e.GetString() ?? "?")
-            .ToArray();
+        var path = !string.IsNullOrWhiteSpace(legacyPath) ? legacyPath : ResolveGameNamesPath();
+        _packs.LoadAll(path);
     }
 
     public string ResolveDisplayName(int rosterId, int givenNameId, int familyNameId, int? appearanceSex, int? appearanceEthnicity, string? fallbackDisplayName = null)
@@ -74,34 +52,22 @@ public sealed class NameDatabase
         if (!string.IsNullOrWhiteSpace(fallbackDisplayName))
             return fallbackDisplayName.Trim();
 
-        var ethKey = appearanceEthnicity switch
-        {
-            0 => "caucasian",
-            1 => "asian",
-            2 => "african",
-            _ => "caucasian"
-        };
-
-        if (!_pools.TryGetValue(ethKey, out var pool))
-            _pools.TryGetValue("caucasian", out pool);
-
-        pool ??= EthnicNamePool.Empty;
-
-        var female = appearanceSex == 1;
-        var firstList = female ? pool.FemaleFirst : pool.MaleFirst;
-        var first = firstList.Length > 0 ? firstList[Math.Abs(givenNameId) % firstList.Length] : "?";
-        var fam = pool.Family.Length > 0 ? pool.Family[Math.Abs(familyNameId) % pool.Family.Length] : "?";
-        var sex = female ? "F" : "M";
-        return $"{first} {fam} (#{rosterId}, {sex})";
+        var sex = appearanceSex ?? 0;
+        var eth = appearanceEthnicity ?? 0;
+        var first = ResolveFirstName(givenNameId, sex, eth);
+        var fam = ResolveFamilyName(familyNameId, eth);
+        var sexLabel = sex == 1 ? "F" : "M";
+        return $"{first} {fam} (#{rosterId}, {sexLabel})";
     }
 
-    sealed class EthnicNamePool
-    {
-        public static EthnicNamePool Empty { get; } = new();
-        public string[] MaleFirst { get; init; } = Array.Empty<string>();
-        public string[] FemaleFirst { get; init; } = Array.Empty<string>();
-        public string[] Family { get; init; } = Array.Empty<string>();
-    }
+    public string ResolveFirstName(int givenNameId, int appearanceSex, int appearanceEthnicity) =>
+        _packs.ResolveFirstName(givenNameId, appearanceSex, appearanceEthnicity);
+
+    public string ResolveFamilyName(int familyNameId, int appearanceEthnicity) =>
+        _packs.ResolveFamilyName(familyNameId, appearanceEthnicity);
+
+    public bool TryResolveCityPack(string cityName, out float latitude, out float longitude, out string packLabel) =>
+        _packs.TryResolveCityPack(cityName, out latitude, out longitude, out packLabel);
 }
 
 public static class EditorSettings

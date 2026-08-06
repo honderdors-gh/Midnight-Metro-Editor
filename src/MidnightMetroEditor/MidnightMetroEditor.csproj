@@ -7,10 +7,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MidnightMetroEditor</RootNamespace>
     <AssemblyName>MidnightMetroEditor</AssemblyName>
-    <ApplicationIcon />
+    <ApplicationIcon>Assets\midnight-metro-icon.ico</ApplicationIcon>
     <StartupObject>MidnightMetroEditor.Program</StartupObject>
     <Version>0.1.0</Version>
     <Authors>Midnight Line Studio</Authors>
     <Description>Save file editor for Midnight Metro.</Description>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Assets\midnight-metro-icon.ico" />
+    <Content Include="Assets\midnight-metro-icon.png" />
+  </ItemGroup>
 </Project>

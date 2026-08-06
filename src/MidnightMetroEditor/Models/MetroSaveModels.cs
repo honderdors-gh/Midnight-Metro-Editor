@@ -27,10 +27,12 @@ namespace MidnightMetroEditor.Models
         public MetroSaveGangs gangs = new();
         /// <summary>Per-citizen criminal ledger rows (v47+).</summary>
         public MetroSaveCriminalLedger criminalLedger = new();
-        /// <summary>Licensed vs illegal vice lots (v51+).</summary>
+        /// <summary>Licensed vs illegal vice lots (v51+); superseded by <see cref="workplaces"/> vice fields (v55+).</summary>
         public MetroSaveNightlife nightlife = new();
         /// <summary>Named gang chunk ownership (v51+).</summary>
         public MetroSaveGangTurf gangTurf = new();
+        /// <summary>Lot + household workplaces — jobs, fulfillment, vice (v55+).</summary>
+        public MetroSaveWorkplaces workplaces = new();
     }
     public class MetroSaveMobility
     {
@@ -97,6 +99,28 @@ namespace MidnightMetroEditor.Models
         public int federalPoliceContractActive;
         public int federalPoliceContractSignedDay;
         public int federalPoliceContractDaysRemaining;
+        /// <summary>Bitmask of regional police/justice service contracts (v60+).</summary>
+        public int externalCrimeServiceMask;
+        /// <summary>Spendable progress-tree tokens (v61+).</summary>
+        public int progressTokens;
+        /// <summary>Bitmask of city tiers that already granted tokens (v61+).</summary>
+        public int progressTokenGrantsMask;
+        /// <summary>Civic &amp; utility unlock tree tier 0–5 (v62+).</summary>
+        public int civicProgressionTier;
+        /// <summary>Transport unlock tree tier 0–5 (v63+).</summary>
+        public int transportProgressionTier;
+        /// <summary>Lifetime local power generation in MW·days (v64+).</summary>
+        public float lifetimePowerMwDays;
+        /// <summary>Which power MW·day thresholds already granted a token (v64+).</summary>
+        public int progressPowerTokenMask;
+        /// <summary>Lifetime school graduates for token earn (v64+).</summary>
+        public int lifetimeGraduates;
+        /// <summary>Lifetime school dropouts for token earn (v64+).</summary>
+        public int lifetimeDropouts;
+        /// <summary>Graduate-token steps already paid (v64+).</summary>
+        public int progressGraduateTokenSteps;
+        /// <summary>Dropout-token steps already paid (v64+).</summary>
+        public int progressDropoutTokenSteps;
         /// <summary>Time of day when saved (0–24, v44+).</summary>
         public float simHour;
     }
@@ -198,6 +222,11 @@ namespace MidnightMetroEditor.Models
         public int[]? pregnancyOutOfWedlock;
         public int[]? pregnancyFetusCount;
         public int[]? pregnancyContext;
+        /// <summary>Intraday labor schedule (v53+).</summary>
+        public int[]? pregnancyDueDay;
+        public float[]? pregnancyDueHour;
+        public int[]? pregnancyBirthsPending;
+        public float[]? pregnancyNextBirthHour;
         public int[]? reproductiveCycleDay;
         public int[]? educationLevel;
         public float[]? educationYears;
@@ -282,8 +311,11 @@ namespace MidnightMetroEditor.Models
         public int[]? gangStanding;
         public int[]? gangInitiationDays;
         public int[]? serialHiddenCrimes;
+        /// <summary>Sim day resident arrived; 0 = legacy long-term (v52+).</summary>
+        public int[]? residentSinceDay;
+        /// <summary>Bound <see cref="MetroWorkplace"/> id (v55+).</summary>
+        public int[]? workplaceId;
     }
-
     public class MetroSaveGangs
     {
         public int nextGangId = 1;
@@ -299,7 +331,6 @@ namespace MidnightMetroEditor.Models
         public int[]? rivalGangId;
         public int[]? rivalryScore;
     }
-
     public class MetroSaveNightlife
     {
         public int[]? lotX;
@@ -307,13 +338,27 @@ namespace MidnightMetroEditor.Models
         public int[]? viceKind;
         public int[]? ownerGangId;
     }
-
     public class MetroSaveGangTurf
     {
         public int[]? chunkIndex;
         public int[]? gangId;
     }
-
+    public class MetroSaveWorkplaces
+    {
+        public int[]? workplaceId;
+        public int[]? anchorX;
+        public int[]? anchorY;
+        public int[]? siteKind;
+        public int[]? category;
+        public int[]? hostRosterId;
+        public int[]? jobSlotTarget;
+        public int[]? vacancyStreakDays;
+        public int[]? supplyFulfillment;
+        public int[]? customerFulfillment;
+        public int[]? viceKind;
+        public int[]? ownerGangId;
+        public int[]? wealth;
+    }
     public class MetroSaveCriminalLedger
     {
         public int[]? rosterId;
@@ -323,7 +368,6 @@ namespace MidnightMetroEditor.Models
         public int[]? gangId;
         public int[]? weight;
     }
-
     public class MetroSaveJustice
     {
         public int nextCaseId = 1;
@@ -383,6 +427,14 @@ namespace MidnightMetroEditor.Models
         public int districtAttorneyRosterId;
         public int policeChiefAppointedDay;
         public int districtAttorneyAppointedDay;
+        /// <summary>Spread ballot + morning/evening poll snapshots (v52+).</summary>
+        public int[]? mayorBallotTotals;
+        public int[]? councilBallotTotals;
+        public int ballotVotersCollected;
+        public int[]? pollMayorPermille;
+        public int[]? pollCouncilPermille;
+        /// <summary>Last poll slot index for morning/evening polls (v57+).</summary>
+        public int lastPollSlot;
     }
     public class MetroSaveNewsArticleRow
     {

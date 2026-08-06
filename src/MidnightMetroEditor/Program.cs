@@ -26,7 +26,7 @@ static class Program
             }
         }
 
-        if (args.Length >= 2 && args[0] == "--verify")
+        if (args.Length >= 2 && args[0] is "--verify" or "--civic")
         {
             var path = args[1];
             try
@@ -38,6 +38,14 @@ static class Program
                     var gameFile = MetroSaveJson.Deserialize(json);
                     var merged = MetroSaveJsonMerge.MergeOriginalWithFile(json, gameFile);
                     MetroSaveVerify.ValidateGameSaveOrThrow(merged);
+                    if (args[0] == "--civic")
+                    {
+                        var names = new NameDatabase();
+                        names.Load(NameDatabase.ResolveGameNamesPath());
+                        Console.WriteLine(MetroCivicOfficeQuery.FormatReport(gameFile, names));
+                        return 0;
+                    }
+
                     Console.WriteLine($"OK: {path} (Midnight Metro game save)");
                     Console.WriteLine(MetroSaveVerify.Describe(info));
                     Console.WriteLine($"  editor schema v{MetroSaveSchema.CurrentSaveVersion}");
