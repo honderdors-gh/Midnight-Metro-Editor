@@ -189,6 +189,7 @@ public sealed class MetroLotEditor
 
     public string? buildingItemId { get => ReadString(_file.grid.buildingItemId); set => WriteString(_file.grid.buildingItemId, value); }
     public string? rooftopItemId { get => ReadString(_file.grid.rooftopItemId); set => WriteString(_file.grid.rooftopItemId, value); }
+    public int embeddedCivicType { get => Read(_file.grid.embeddedCivicType); set => Write(_file.grid.embeddedCivicType, value); }
 
     public int chunkUnlocked { get => Read(_file.grid.chunkUnlocked); set => Write(_file.grid.chunkUnlocked, value); }
 

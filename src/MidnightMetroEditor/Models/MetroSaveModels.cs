@@ -103,16 +103,24 @@ namespace MidnightMetroEditor.Models
         public int externalCrimeServiceMask;
         /// <summary>Spendable progress-tree tokens (v61+).</summary>
         public int progressTokens;
+        /// <summary>Spendable crime-path progress tokens (v67+).</summary>
+        public int crimeProgressTokens;
         /// <summary>Bitmask of city tiers that already granted tokens (v61+).</summary>
         public int progressTokenGrantsMask;
-        /// <summary>Civic &amp; utility unlock tree tier 0–5 (v62+).</summary>
+        /// <summary>Civic unlock tree tier 0–4 (v62+; remapped v68).</summary>
         public int civicProgressionTier;
+        /// <summary>Utility unlock tree tier 0–4 (v68+).</summary>
+        public int utilityProgressionTier;
         /// <summary>Transport unlock tree tier 0–5 (v63+).</summary>
         public int transportProgressionTier;
         /// <summary>Lifetime local power generation in MW·days (v64+).</summary>
         public float lifetimePowerMwDays;
         /// <summary>Which power MW·day thresholds already granted a token (v64+).</summary>
         public int progressPowerTokenMask;
+        /// <summary>Lifetime local water supply unit·days (v67+).</summary>
+        public float lifetimeWaterSupplyDays;
+        /// <summary>Which water unit·day thresholds already granted a token (v67+).</summary>
+        public int progressWaterTokenMask;
         /// <summary>Lifetime school graduates for token earn (v64+).</summary>
         public int lifetimeGraduates;
         /// <summary>Lifetime school dropouts for token earn (v64+).</summary>
@@ -121,8 +129,37 @@ namespace MidnightMetroEditor.Models
         public int progressGraduateTokenSteps;
         /// <summary>Dropout-token steps already paid (v64+).</summary>
         public int progressDropoutTokenSteps;
+        public int lifetimeMailDelivered;
+        public int progressMailTokenSteps;
+        public int lifetimeGarbageCollected;
+        public int progressGarbageCollectTokenSteps;
+        public int lifetimeGarbageProcessed;
+        public int progressGarbageProcessTokenSteps;
+        public int lifetimeMetroRiders;
+        public int progressMetroRiderTokenSteps;
+        public int progressRidersPerLineTokenMask;
+        public int lifetimeArrests;
+        public int progressArrestTokenSteps;
+        public int lifetimeConvictions;
+        public int progressConvictionTokenSteps;
+        public int lifetimeUnsolvedCrimes;
+        public int progressUnsolvedCrimeTokenSteps;
+        public int lifetimeViceLotDays;
+        public int progressViceLotDayTokenSteps;
+        public int lifetimeBrothelCustomers;
+        public int progressBrothelCustomerTokenSteps;
+        public int transportProgressTokens;
+        public int utilityProgressTokens;
+        public int civicProgressTokens;
         /// <summary>Time of day when saved (0–24, v44+).</summary>
         public float simHour;
+        /// <summary>1 when map camera pose was written (v66+).</summary>
+        public int mapCameraSaved;
+        public float mapCameraX;
+        public float mapCameraY;
+        public float mapCameraZ;
+        public float mapCameraPitch;
+        public float mapCameraYaw;
     }
     public class MetroSaveGrid
     {
@@ -146,6 +183,8 @@ namespace MidnightMetroEditor.Models
         public string[]? buildingItemId;
         /// <summary>Rooftop workshop attachments (v9+).</summary>
         public string[]? rooftopItemId;
+        /// <summary>Ground-floor civic/police embed CellType on commercial hosts (v65+).</summary>
+        public int[]? embeddedCivicType;
         /// <summary>Street class, lanes, lights (v8+).</summary>
         public int[]? streetRoadClass;
         public int[]? streetRoadLanes;
@@ -301,6 +340,10 @@ namespace MidnightMetroEditor.Models
         public int[]? gangRole;
         public int[]? youthCrimeExposure;
         public int[]? isSchoolDropout;
+        /// <summary>Imported civic staff — wages exempt from city wage-tax income (v69+).</summary>
+        public int[]? wageTaxExempt;
+        /// <summary>Academy credential status (v69+).</summary>
+        public int[]? academyStatus;
         /// <summary>Soldier/member rank 1–10 within crew role (v48+).</summary>
         public int[]? gangLevel;
         /// <summary>Turned official — crew payoff/blackmail, not membership (v49+).</summary>

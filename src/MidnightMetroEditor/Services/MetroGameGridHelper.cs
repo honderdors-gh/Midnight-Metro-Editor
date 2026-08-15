@@ -36,6 +36,7 @@ public sealed class MetroGridCellView
 
     public string? buildingItemId { get => ReadString(_grid.buildingItemId); set => WriteString(_grid.buildingItemId, value); }
     public string? rooftopItemId { get => ReadString(_grid.rooftopItemId); set => WriteString(_grid.rooftopItemId, value); }
+    public int embeddedCivicType { get => Read(_grid.embeddedCivicType); set => Write(_grid.embeddedCivicType, value); }
 
     public int chunkUnlocked { get => Read(_grid.chunkUnlocked); set => Write(_grid.chunkUnlocked, value); }
 
