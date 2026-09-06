@@ -153,6 +153,16 @@ namespace MidnightMetroEditor.Models
         public int civicProgressTokens;
         /// <summary>Time of day when saved (0–24, v44+).</summary>
         public float simHour;
+        /// <summary>Sim speed preset when saved (v71+): 0 Normal, 1 Fast, 2 Faster, 3 Paused.</summary>
+        public int speedPreset = 3;
+        /// <summary>Weather kind enum (v71+).</summary>
+        public int weatherKind;
+        /// <summary>Air temperature °C (v71+).</summary>
+        public float temperatureC = 15f;
+        /// <summary>Lots per purchasable block (v71+); 8 new, 7 legacy.</summary>
+        public int worldMapLotSize = 8;
+        /// <summary>Blocks along one axis for this save (v71+).</summary>
+        public int worldMapBlocksAxis = 14;
         /// <summary>1 when map camera pose was written (v66+).</summary>
         public int mapCameraSaved;
         public float mapCameraX;
@@ -227,6 +237,14 @@ namespace MidnightMetroEditor.Models
         public int[]? postalDeliveryLevel;
         /// <summary>Street utility carrier flags per cell (v28+).</summary>
         public int[]? streetUtilityNetworks;
+        /// <summary>World-map lot kind / road subtype / grade (v71+).</summary>
+        public int[]? lotKind;
+        public int[]? roadSubtype;
+        public int[]? wayGrade;
+        public int[]? headingDeg;
+        public int[]? roadHalfMask;
+        public int[]? trackSubtype;
+        public int[]? speedLimitKmh;
     }
     public class MetroSaveResidents
     {

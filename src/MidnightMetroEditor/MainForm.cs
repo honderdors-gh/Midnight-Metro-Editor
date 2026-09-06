@@ -350,6 +350,7 @@ public sealed class MainForm : Form
         _tree.Nodes.Clear();
         _tree.Nodes.Add("overview", "Overview");
         _tree.Nodes.Add("session", "Session");
+        _tree.Nodes.Add("world", "World");
         _tree.Nodes.Add("budget", "Budget & Treasury");
         _tree.Nodes.Add("playerAgency", "Player Agency");
         _tree.Nodes.Add("gangs", "Gangs");
@@ -567,6 +568,9 @@ public sealed class MainForm : Form
             case "session":
                 ShowSession();
                 break;
+            case "world":
+                ShowWorld();
+                break;
             case "budget":
                 ShowBudget();
                 break;
@@ -676,6 +680,168 @@ public sealed class MainForm : Form
             AutoSize = false,
             Padding = new Padding(4)
         });
+    }
+
+    void ShowWorld()
+    {
+        if (!_doc.IsGameSave || _doc.GameFile?.session == null || _doc.GameFile.grid == null)
+        {
+            _contentHost.Controls.Add(new Label
+            {
+                Dock = DockStyle.Fill,
+                Text = "World editor requires a Midnight Metro game save (v71+ fields: geo, weather, speed, lot kinds).",
+                AutoSize = false,
+                Padding = new Padding(4)
+            });
+            return;
+        }
+
+        var file = _doc.GameFile;
+        var session = file.session;
+        EnsureWorldMapArrays(file.grid);
+
+        _propertyGrid.SelectedObject = session;
+
+        var panel = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(4)
+        };
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+        var speedNames = new[] { "Normal", "Fast", "Faster", "Paused" };
+        var speedLabel = session.speedPreset >= 0 && session.speedPreset < speedNames.Length
+            ? speedNames[session.speedPreset]
+            : session.speedPreset.ToString();
+
+        panel.Controls.Add(new Label
+        {
+            AutoSize = true,
+            Text =
+                "World map / climate (edit session fields in the property panel).\r\n\r\n" +
+                $"Latitude: {session.latitude:F4}°   Longitude: {session.longitude:F4}°\r\n" +
+                $"Weather kind: {session.weatherKind}   Temperature: {session.temperatureC:0.#}°C\r\n" +
+                $"Speed preset: {speedLabel} ({session.speedPreset})   Sim hour: {session.simHour:0.##}\r\n" +
+                $"Lot size (chunk): {session.worldMapLotSize}   Blocks/axis: {session.worldMapBlocksAxis}\r\n" +
+                $"Grid: {file.grid.width}×{file.grid.height} lots\r\n\r\n" +
+                "Lot paint: set X/Y then Apply. lotKind 0=Zone 1=Road 2=River. " +
+                "roadSubtype per game dictionary. wayGrade 0=Ground 1=Tunnel 2=Bridge 3=RampUp 4=RampDown.\r\n" +
+                "Validate adjacency scans all lots for illegal 8-neighbors (highway↔lower without ramp, etc.).",
+            Padding = new Padding(0, 0, 0, 8)
+        }, 0, 0);
+
+        var tools = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
+        tools.Controls.Add(new Label { Text = "X:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
+        var wx = new NumericUpDown { Minimum = 0, Maximum = Math.Max(0, file.grid.width - 1), Width = 70 };
+        tools.Controls.Add(wx);
+        tools.Controls.Add(new Label { Text = "Y:", AutoSize = true, Padding = new Padding(8, 6, 0, 0) });
+        var wy = new NumericUpDown { Minimum = 0, Maximum = Math.Max(0, file.grid.height - 1), Width = 70 };
+        tools.Controls.Add(wy);
+        tools.Controls.Add(new Label { Text = "lotKind:", AutoSize = true, Padding = new Padding(8, 6, 0, 0) });
+        var kindBox = new NumericUpDown { Minimum = 0, Maximum = 2, Width = 50 };
+        tools.Controls.Add(kindBox);
+        tools.Controls.Add(new Label { Text = "roadSubtype:", AutoSize = true, Padding = new Padding(8, 6, 0, 0) });
+        var subtypeBox = new NumericUpDown { Minimum = 0, Maximum = 32, Width = 50 };
+        tools.Controls.Add(subtypeBox);
+        tools.Controls.Add(new Label { Text = "wayGrade:", AutoSize = true, Padding = new Padding(8, 6, 0, 0) });
+        var gradeBox = new NumericUpDown { Minimum = 0, Maximum = 4, Width = 50 };
+        tools.Controls.Add(gradeBox);
+
+        var reportBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            Font = new Font(FontFamily.GenericMonospace, 9f)
+        };
+
+        var applyBtn = new Button { Text = "Paint lot", AutoSize = true };
+        applyBtn.Click += (_, _) =>
+        {
+            var x = (int)wx.Value;
+            var y = (int)wy.Value;
+            if (!MetroGameGridHelper.TryGetCellView(file, x, y, out var cell) || cell == null)
+            {
+                reportBox.Text = $"Out of bounds ({x},{y}).";
+                return;
+            }
+
+            cell.lotKind = (int)kindBox.Value;
+            cell.roadSubtype = (int)subtypeBox.Value;
+            cell.wayGrade = (int)gradeBox.Value;
+            if (cell.lotKind == 1 && cell.type != 1 && cell.type != 32)
+                cell.type = 1; // Street
+            if (cell.lotKind == 2)
+                cell.type = 31; // Water
+            MarkDirty();
+            reportBox.Text = $"Painted ({x},{y}): {cell.Summary}";
+            _propertyGrid.SelectedObject = cell;
+        };
+        tools.Controls.Add(applyBtn);
+
+        var validateBtn = new Button { Text = "Validate adjacency", AutoSize = true };
+        validateBtn.Click += (_, _) =>
+        {
+            reportBox.Text = WorldMapAdjacencyReport.Build(file);
+            MarkDirty();
+        };
+        tools.Controls.Add(validateBtn);
+
+        var loadBtn = new Button { Text = "Load cell → props", AutoSize = true };
+        loadBtn.Click += (_, _) =>
+        {
+            var x = (int)wx.Value;
+            var y = (int)wy.Value;
+            if (!MetroGameGridHelper.TryGetCellView(file, x, y, out var cell) || cell == null)
+            {
+                reportBox.Text = $"Out of bounds ({x},{y}).";
+                return;
+            }
+
+            kindBox.Value = cell.lotKind;
+            subtypeBox.Value = cell.roadSubtype;
+            gradeBox.Value = cell.wayGrade;
+            _propertyGrid.SelectedObject = cell;
+            reportBox.Text = cell.Summary;
+        };
+        tools.Controls.Add(loadBtn);
+
+        panel.Controls.Add(tools, 0, 1);
+        panel.Controls.Add(reportBox, 0, 2);
+        _contentHost.Controls.Add(panel);
+    }
+
+    static void EnsureWorldMapArrays(MetroSaveGrid grid)
+    {
+        var n = grid.width * grid.height;
+        if (n <= 0) return;
+        grid.lotKind ??= new int[n];
+        grid.roadSubtype ??= new int[n];
+        grid.wayGrade ??= new int[n];
+        grid.headingDeg ??= new int[n];
+        grid.roadHalfMask ??= new int[n];
+        grid.trackSubtype ??= new int[n];
+        grid.speedLimitKmh ??= new int[n];
+        ResizeIfNeeded(ref grid.lotKind, n);
+        ResizeIfNeeded(ref grid.roadSubtype, n);
+        ResizeIfNeeded(ref grid.wayGrade, n);
+        ResizeIfNeeded(ref grid.headingDeg, n);
+        ResizeIfNeeded(ref grid.roadHalfMask, n);
+        ResizeIfNeeded(ref grid.trackSubtype, n);
+        ResizeIfNeeded(ref grid.speedLimitKmh, n);
+    }
+
+    static void ResizeIfNeeded(ref int[]? array, int n)
+    {
+        if (array == null || array.Length == n) return;
+        var next = new int[n];
+        Array.Copy(array, next, Math.Min(array.Length, n));
+        array = next;
     }
 
     void ShowBudget()

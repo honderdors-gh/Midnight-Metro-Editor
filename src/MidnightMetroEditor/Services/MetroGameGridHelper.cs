@@ -45,12 +45,20 @@ public sealed class MetroGridCellView
     public int constructionKind { get => Read(_grid.constructionKind); set => Write(_grid.constructionKind, value); }
     public int constructionCompleteDay { get => Read(_grid.constructionCompleteDay); set => Write(_grid.constructionCompleteDay, value); }
 
+    public int lotKind { get => Read(_grid.lotKind); set => Write(_grid.lotKind, value); }
+    public int roadSubtype { get => Read(_grid.roadSubtype); set => Write(_grid.roadSubtype, value); }
+    public int wayGrade { get => Read(_grid.wayGrade); set => Write(_grid.wayGrade, value); }
+    public int headingDeg { get => Read(_grid.headingDeg); set => Write(_grid.headingDeg, value); }
+    public int roadHalfMask { get => Read(_grid.roadHalfMask); set => Write(_grid.roadHalfMask, value); }
+    public int trackSubtype { get => Read(_grid.trackSubtype); set => Write(_grid.trackSubtype, value); }
+    public int speedLimitKmh { get => Read(_grid.speedLimitKmh); set => Write(_grid.speedLimitKmh, value); }
+
     public string Summary
     {
         get
         {
             var anchor = IsLotAnchor ? " [anchor]" : "";
-            return $"({X},{Y}){anchor} type={type} zone={zone} lot={lotWidth}x{lotHeight}@{lotAnchorX},{lotAnchorY} pop={population}";
+            return $"({X},{Y}){anchor} type={type} zone={zone} lotKind={lotKind} road={roadSubtype}/{wayGrade} lot={lotWidth}x{lotHeight}@{lotAnchorX},{lotAnchorY} pop={population}";
         }
     }
 
@@ -111,6 +119,8 @@ public static class MetroGameGridHelper
         var geoLine = $"Latitude: {session.latitude:F4}°  Longitude: {session.longitude:F4}°\r\n";
         if (names != null && names.TryResolveCityPack(session.cityName, out var packLat, out var packLon, out var packLabel))
             geoLine += $"City pack match: {packLabel} (center {packLat:F2}°, {packLon:F2}°)\r\n";
+        geoLine += $"Weather kind: {session.weatherKind}  Temp: {session.temperatureC:0.#}°C  Speed: {session.speedPreset}\r\n";
+        geoLine += $"World lot size: {session.worldMapLotSize}  Blocks/axis: {session.worldMapBlocksAxis}\r\n";
 
         var workplaceLine = file.version >= MetroWorkplaceStorage.WorkplaceSaveVersion
             ? $"Lots: {lots:N0}\r\nWorkplaces: {workplaces:N0}\r\n"
